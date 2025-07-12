@@ -1,0 +1,1236 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>City Map Viewer</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+        .container {
+            display: flex;
+            gap: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+            height: calc(100vh - 180px);
+        }
+        .map-container {
+            flex: 2;
+            display: flex;
+            flex-direction: column;
+        }
+        .landmarks-container {
+            flex: 1;
+            min-width: 300px;
+            display: flex;
+            flex-direction: column;
+        }
+        #map {
+            flex: 1;
+            width: 100%;
+            border: 1px solid #ccc;
+            margin-top: 20px;
+        }
+        .search-form {
+            max-width: 500px;
+            margin: 0 auto 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        select {
+            padding: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 16px;
+            background-color: white;
+            cursor: pointer;
+        }
+        select:hover {
+            border-color: #4CAF50;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .error {
+            color: #d32f2f;
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #ffebee;
+            border-radius: 4px;
+            border: 1px solid #ffcdd2;
+        }
+        .landmarks-list {
+            flex: 1;
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f5f5f5;
+            border-radius: 4px;
+            overflow-y: auto;
+        }
+        .landmark-item {
+            padding: 15px;
+            margin-bottom: 15px;
+            background-color: white;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            position: relative;
+        }
+        .landmark-name {
+            font-weight: bold;
+            font-size: 1.1em;
+            margin-bottom: 8px;
+            color: #2c3e50;
+            padding-right: 30px;
+        }
+        .landmark-type {
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 8px;
+            padding: 3px 8px;
+            background-color: #f0f0f0;
+            border-radius: 3px;
+            display: inline-block;
+        }
+        .landmark-description {
+            color: #555;
+            font-size: 0.95em;
+            margin: 8px 0;
+            line-height: 1.4;
+        }
+        .landmark-website {
+            margin-top: 8px;
+        }
+        .landmark-website a {
+            color: #3498db;
+            text-decoration: none;
+        }
+        .landmark-website a:hover {
+            text-decoration: underline;
+        }
+        .no-landmarks {
+            color: #666;
+            text-align: center;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            border: 1px solid #e9ecef;
+        }
+        .loader {
+            display: none;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #ffffff;
+            border-radius: 50%;
+            border-top: 3px solid transparent;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .loading-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.8);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #4CAF50;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        .loading-text {
+            margin-top: 15px;
+            color: #333;
+            font-size: 1.2em;
+        }
+        .popularity-badge {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background-color: #4CAF50;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+        .distance-quiz {
+            margin-top: 20px;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            border: 1px solid #e9ecef;
+            display: none;
+        }
+        
+        .distance-quiz h3 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+        
+        .distance-input {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin: 15px 0;
+        }
+        
+        .distance-input input {
+            padding: 8px;
+            width: 100px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        
+        .distance-input select {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        
+        .distance-result {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 4px;
+            display: none;
+        }
+        
+        .distance-result.correct {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        
+        .distance-result.incorrect {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        
+        .next-pair-button {
+            margin-top: 15px;
+            padding: 10px 20px;
+            background-color: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            display: none;
+        }
+        
+        .next-pair-button:hover {
+            background-color: #5a6268;
+        }
+        
+        .highlighted-marker {
+            filter: drop-shadow(0 0 5px rgba(0, 0, 0, 0.5));
+        }
+        
+        .highlighted-landmark {
+            border: 2px solid #4CAF50 !important;
+            background-color: #e8f5e9 !important;
+        }
+        
+        .marker-1 {
+            filter: hue-rotate(120deg) brightness(1.2) !important; /* Bright Green */
+        }
+        
+        .marker-2 {
+            filter: hue-rotate(240deg) brightness(1.2) !important; /* Bright Blue */
+        }
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #ccc;
+        }
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            border: 1px solid transparent;
+            border-bottom: none;
+            margin-right: 5px;
+            border-radius: 4px 4px 0 0;
+        }
+        .tab.active {
+            background-color: #f8f9fa;
+            border-color: #ccc;
+            border-bottom-color: #f8f9fa;
+            margin-bottom: -1px;
+        }
+        .tab-content {
+            display: none;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border: 1px solid #ccc;
+            border-top: none;
+            border-radius: 0 0 4px 4px;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .stats-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        .stats-table th, .stats-table td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        .stats-table th {
+            background-color: #f5f5f5;
+        }
+        .stats-table tr:hover {
+            background-color: #f8f9fa;
+        }
+        .stats-summary {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: white;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .distortion-analysis {
+            padding: 20px;
+        }
+        
+        .analysis-controls {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn-primary {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        
+        .btn-primary:hover {
+            background-color: #0056b3;
+        }
+        
+        .btn-secondary {
+            background-color: #6c757d;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        
+        .btn-secondary:hover {
+            background-color: #545b62;
+        }
+        
+        .analysis-stats {
+            margin-bottom: 30px;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .stat-card {
+            background-color: white;
+            padding: 15px;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #007bff;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            color: #666;
+            font-size: 0.9em;
+        }
+        
+        .analysis-graphs {
+            margin-bottom: 30px;
+        }
+        
+        .graph-container {
+            margin-bottom: 30px;
+            background-color: white;
+            padding: 20px;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .graph-container h4 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: #2c3e50;
+        }
+        
+        .analysis-graph {
+            width: 100%;
+            max-width: 800px;
+            height: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        .recent-results {
+            background-color: white;
+            padding: 20px;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        
+        .results-table th,
+        .results-table td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .results-table th {
+            background-color: #f5f5f5;
+            font-weight: bold;
+        }
+        
+        .results-table tr:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .no-data-message {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            border: 1px solid #e9ecef;
+        }
+        
+        .distortion-ratio {
+            font-weight: bold;
+        }
+        
+        .distortion-ratio.overestimated {
+            color: #dc3545;
+        }
+        
+        .distortion-ratio.underestimated {
+            color: #007bff;
+        }
+        
+        .distortion-ratio.accurate {
+            color: #28a745;
+        }
+    </style>
+</head>
+<body>
+    <div class="loading-overlay" id="loadingOverlay">
+        <div style="text-align: center;">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">Loading city data...</div>
+        </div>
+    </div>
+
+    <div class="search-form">
+        <h1>City Map Viewer</h1>
+        <form id="cityForm" action="/search_city" method="post">
+            <div class="form-group">
+                <label for="city_name">Select a City:</label>
+                <select id="city_name" name="city_name" required>
+                    <option value="">Choose a city...</option>
+                    <option value="New York">New York</option>
+                    <option value="London">London</option>
+                    <option value="Paris">Paris</option>
+                    <option value="Tokyo">Tokyo</option>
+                    <option value="Rome">Rome</option>
+                    <option value="Sydney">Sydney</option>
+                    <option value="Berlin">Berlin</option>
+                    <option value="Amsterdam">Amsterdam</option>
+                    <option value="Barcelona">Barcelona</option>
+                    <option value="Dubai">Dubai</option>
+                </select>
+            </div>
+            <button type="submit" id="searchButton">
+                <span>View City</span>
+                <div class="loader" id="buttonLoader"></div>
+            </button>
+        </form>
+        <div id="error" class="error" style="display: none;"></div>
+    </div>
+
+    <div class="tabs">
+        <div class="tab active" data-tab="map">Map View</div>
+        <div class="tab" data-tab="distortion">Distortion Analysis</div>
+    </div>
+
+    <div class="tab-content active" id="map-tab">
+        <div class="container">
+            <div class="map-container">
+                <div id="map"></div>
+                <div id="distanceQuiz" class="distance-quiz">
+                    <h3>Distance Quiz</h3>
+                    <p>What is the distance between <span id="landmark1"></span> and <span id="landmark2"></span>?</p>
+                    <div class="distance-input">
+                        <input type="number" id="distanceInput" min="0" step="0.1" placeholder="Distance">
+                        <select id="distanceUnit">
+                            <option value="km">kilometers</option>
+                            <option value="mi">miles</option>
+                        </select>
+                        <button id="checkDistance">Check Answer</button>
+                    </div>
+                    <div id="distanceResult" class="distance-result"></div>
+                    <button id="nextPair" class="next-pair-button">Next Pair</button>
+                </div>
+            </div>
+            <div class="landmarks-container">
+                <h2>Popular Attractions</h2>
+                <div id="landmarks" class="landmarks-list">
+                    <div class="no-landmarks">Select a city to view landmarks</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="tab-content" id="distortion-tab">
+        <div class="distortion-analysis">
+            <h2>Distance Distortion Analysis</h2>
+            <div class="analysis-controls">
+                <button id="generateAnalysis" class="btn-primary">Generate Analysis</button>
+                <button id="generateMockData" class="btn-secondary">Generate Mock Data</button>
+                <button id="clearResults" class="btn-secondary">Clear All Results</button>
+            </div>
+            
+            <div id="analysisLoading" class="loading-overlay" style="display: none;">
+                <div style="text-align: center;">
+                    <div class="loading-spinner"></div>
+                    <div class="loading-text">Generating analysis...</div>
+                </div>
+            </div>
+            
+            <div id="analysisContent" style="display: none;">
+                <div class="analysis-stats">
+                    <h3>Summary Statistics</h3>
+                    <div id="summaryStats" class="stats-grid"></div>
+                </div>
+                
+                <div class="analysis-graphs">
+                    <h3>Visualizations</h3>
+                    <div class="graph-container">
+                        <h4>Perceived vs Actual Distances</h4>
+                        <img id="scatterPlot" class="analysis-graph" alt="Scatter plot">
+                    </div>
+                    
+                    <div class="graph-container">
+                        <h4>Distortion Ratio Distribution</h4>
+                        <img id="distortionHistogram" class="analysis-graph" alt="Distortion histogram">
+                    </div>
+                    
+                    <div class="graph-container" id="cityHeatmapContainer" style="display: none;">
+                        <h4>City Distortion Heatmap</h4>
+                        <img id="cityHeatmap" class="analysis-graph" alt="City heatmap">
+                    </div>
+                    
+                    <div class="graph-container">
+                        <h4>Error Analysis</h4>
+                        <img id="errorAnalysis" class="analysis-graph" alt="Error analysis">
+                    </div>
+                </div>
+                
+                <div class="recent-results">
+                    <h3>Recent Quiz Results</h3>
+                    <div id="recentResultsTable"></div>
+                </div>
+            </div>
+            
+            <div id="noDataMessage" class="no-data-message">
+                <p>No quiz data available. Complete some distance quizzes to see distortion analysis.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let map = null;
+
+        // show/hide loading state
+        function setLoading(isLoading) {
+            const button = document.getElementById('searchButton');
+            const buttonLoader = document.getElementById('buttonLoader');
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            
+            button.disabled = isLoading;
+            buttonLoader.style.display = isLoading ? 'block' : 'none';
+            loadingOverlay.style.display = isLoading ? 'flex' : 'none';
+        }
+
+        // display error message
+        function showError(message) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = message;
+            errorDiv.style.display = message ? 'block' : 'none';
+        }
+
+        // update map with landmarks
+        function updateMap(landmarks) {
+            const mapContainer = document.getElementById('map');
+            
+            // Initialize map if it doesn't exist
+            if (!map) {
+                map = L.map('map').setView([0, 0], 11);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap contributors'
+                }).addTo(map);
+            }
+
+            // Clear existing markers and lines
+            map.eachLayer((layer) => {
+                if (layer instanceof L.Marker || layer instanceof L.Polyline) {
+                    map.removeLayer(layer);
+                }
+            });
+
+            // If we're in quiz mode and have selected landmarks, only show those
+            if (window.currentQuiz && window.currentQuiz.landmark1 && window.currentQuiz.landmark2) {
+                const landmark1 = window.currentQuiz.landmark1;
+                const landmark2 = window.currentQuiz.landmark2;
+
+                // Add markers only for the selected landmarks
+                const marker1 = L.marker([landmark1.lat, landmark1.lon])
+                    .addTo(map)
+                    .bindPopup(`<b>${landmark1.name}</b><br>${landmark1.description || ''}`);
+                
+                const marker2 = L.marker([landmark2.lat, landmark2.lon])
+                    .addTo(map)
+                    .bindPopup(`<b>${landmark2.name}</b><br>${landmark2.description || ''}`);
+
+                // Calculate the center point of the two landmarks
+                const centerLat = (landmark1.lat + landmark2.lat) / 2;
+                const centerLon = (landmark1.lon + landmark2.lon) / 2;
+                
+                // Set the map view to the center point with a fixed zoom level
+                map.setView([centerLat, centerLon], 11);
+
+                // Add a line between the markers
+                L.polyline([
+                    [landmark1.lat, landmark1.lon],
+                    [landmark2.lat, landmark2.lon]
+                ], {
+                    color: '#3388ff',
+                    weight: 3,
+                    opacity: 0.7,
+                    dashArray: '5, 10'
+                }).addTo(map);
+            } else {
+                // Show all landmarks if not in quiz mode
+                const markerLocations = [];
+                landmarks.forEach(landmark => {
+                    const marker = L.marker([landmark.lat, landmark.lon])
+                        .addTo(map)
+                        .bindPopup(`<b>${landmark.name}</b><br>${landmark.description || ''}`);
+                    markerLocations.push([landmark.lat, landmark.lon]);
+                });
+
+                if (markerLocations.length > 0) {
+                    // Calculate the center point of all landmarks
+                    const centerLat = markerLocations.reduce((sum, loc) => sum + loc[0], 0) / markerLocations.length;
+                    const centerLon = markerLocations.reduce((sum, loc) => sum + loc[1], 0) / markerLocations.length;
+                    
+                    // Set the map view to the center point with a fixed zoom level
+                    map.setView([centerLat, centerLon], 11);
+                }
+            }
+        }
+
+        // Calculate distance between two points
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371; // Earth's radius in km
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = 
+                Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+                Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+
+        // convert km to miles
+        function kmToMiles(km) {
+            return km * 0.621371;
+        }
+
+        // cnvert miles to km
+        function milesToKm(miles) {
+            return miles / 0.621371;
+        }
+
+        // start distance quiz
+        function startDistanceQuiz(landmarks) {
+            if (landmarks.length < 2) return;
+
+            // Randomly select two different landmarks
+            const index1 = Math.floor(Math.random() * landmarks.length);
+            let index2;
+            do {
+                index2 = Math.floor(Math.random() * landmarks.length);
+            } while (index2 === index1);
+
+            const landmark1 = landmarks[index1];
+            const landmark2 = landmarks[index2];
+
+            // Calculate actual distance
+            const actualDistanceKm = calculateDistance(
+                landmark1.lat, landmark1.lon,
+                landmark2.lat, landmark2.lon
+            );
+
+            // Update UI
+            document.getElementById('landmark1').textContent = landmark1.name;
+            document.getElementById('landmark2').textContent = landmark2.name;
+            document.getElementById('distanceQuiz').style.display = 'block';
+            document.getElementById('distanceResult').style.display = 'none';
+            document.getElementById('distanceInput').value = '';
+            document.getElementById('nextPair').style.display = 'none';
+
+            // Store current quiz data
+            window.currentQuiz = {
+                landmarks: landmarks,
+                actualDistanceKm: actualDistanceKm,
+                landmark1: landmark1,
+                landmark2: landmark2
+            };
+
+            // Update map with only the selected landmarks
+            updateMap(landmarks);
+        }
+
+        // Statistics tracking
+        let statistics = {
+            totalGuesses: 0,
+            cityStats: {},
+            landmarkPairStats: {},
+            overallError: 0
+        };
+
+        // Function to update statistics
+        function updateStatistics(landmark1, landmark2, city, userDistanceKm, actualDistanceKm) {
+            const difference = Math.abs(userDistanceKm - actualDistanceKm);
+            const percentageError = (difference / actualDistanceKm) * 100;
+            
+            // Update total guesses
+            statistics.totalGuesses++;
+            
+            // Update overall error
+            statistics.overallError = ((statistics.overallError * (statistics.totalGuesses - 1)) + percentageError) / statistics.totalGuesses;
+            
+            // Update city statistics
+            if (!statistics.cityStats[city]) {
+                statistics.cityStats[city] = {
+                    guesses: 0,
+                    totalError: 0,
+                    bestPair: { landmarks: [], error: Infinity }
+                };
+            }
+            statistics.cityStats[city].guesses++;
+            statistics.cityStats[city].totalError = ((statistics.cityStats[city].totalError * (statistics.cityStats[city].guesses - 1)) + percentageError) / statistics.cityStats[city].guesses;
+            
+            // Update landmark pair statistics
+            const pairKey = `${landmark1.name}-${landmark2.name}`;
+            if (!statistics.landmarkPairStats[pairKey]) {
+                statistics.landmarkPairStats[pairKey] = {
+                    landmark1: landmark1.name,
+                    landmark2: landmark2.name,
+                    city: city,
+                    guesses: 0,
+                    totalError: 0
+                };
+            }
+            statistics.landmarkPairStats[pairKey].guesses++;
+            statistics.landmarkPairStats[pairKey].totalError = ((statistics.landmarkPairStats[pairKey].totalError * (statistics.landmarkPairStats[pairKey].guesses - 1)) + percentageError) / statistics.landmarkPairStats[pairKey].guesses;
+            
+            // Update best pair for city if this is better
+            if (percentageError < statistics.cityStats[city].bestPair.error) {
+                statistics.cityStats[city].bestPair = {
+                    landmarks: [landmark1.name, landmark2.name],
+                    error: percentageError
+                };
+            }
+        }
+
+        // Update the check distance handler to include statistics
+        document.getElementById('checkDistance').addEventListener('click', function() {
+            const userInput = parseFloat(document.getElementById('distanceInput').value);
+            const unit = document.getElementById('distanceUnit').value;
+            const resultDiv = document.getElementById('distanceResult');
+            const nextPairButton = document.getElementById('nextPair');
+            
+            if (isNaN(userInput)) {
+                resultDiv.textContent = 'Please enter a valid number';
+                resultDiv.className = 'distance-result incorrect';
+                resultDiv.style.display = 'block';
+                nextPairButton.style.display = 'none';
+                return;
+            }
+
+            const userDistanceKm = unit === 'mi' ? milesToKm(userInput) : userInput;
+            const actualDistanceKm = window.currentQuiz.actualDistanceKm;
+            const difference = Math.abs(userDistanceKm - actualDistanceKm);
+            const percentageError = (difference / actualDistanceKm) * 100;
+
+            // Store result for distortion analysis
+            storeQuizResult(
+                window.currentQuiz.landmark1,
+                window.currentQuiz.landmark2,
+                userDistanceKm,
+                actualDistanceKm,
+                unit
+            );
+
+            // Update statistics
+            updateStatistics(
+                window.currentQuiz.landmark1,
+                window.currentQuiz.landmark2,
+                document.getElementById('city_name').value,
+                userDistanceKm,
+                actualDistanceKm
+            );
+
+            let message;
+            if (percentageError <= 10) {
+                message = `Excellent! The actual distance is ${actualDistanceKm.toFixed(1)} km (${kmToMiles(actualDistanceKm).toFixed(1)} mi)`;
+                resultDiv.className = 'distance-result correct';
+            } else if (percentageError <= 25) {
+                message = `Good guess! The actual distance is ${actualDistanceKm.toFixed(1)} km (${kmToMiles(actualDistanceKm).toFixed(1)} mi)`;
+                resultDiv.className = 'distance-result correct';
+            } else {
+                message = `Not quite. The actual distance is ${actualDistanceKm.toFixed(1)} km (${kmToMiles(actualDistanceKm).toFixed(1)} mi)`;
+                resultDiv.className = 'distance-result incorrect';
+            }
+
+            resultDiv.textContent = message;
+            resultDiv.style.display = 'block';
+            nextPairButton.style.display = 'block';
+        });
+
+        // Handle next pair button
+        document.getElementById('nextPair').addEventListener('click', function() {
+            if (window.currentQuiz && window.currentQuiz.landmarks) {
+                startDistanceQuiz(window.currentQuiz.landmarks);
+            }
+        });
+
+        // update the landmarks list
+        function updateLandmarks(landmarks) {
+            const landmarksContainer = document.getElementById('landmarks');
+            if (!landmarks || landmarks.length === 0) {
+                landmarksContainer.innerHTML = '<div class="no-landmarks">No popular attractions found nearby</div>';
+                document.getElementById('distanceQuiz').style.display = 'none';
+                return;
+            }
+
+            landmarksContainer.innerHTML = landmarks.map((landmark, index) => `
+                <div class="landmark-item" data-lat="${landmark.lat}" data-lon="${landmark.lon}">
+                    <div class="popularity-badge">#${index + 1}</div>
+                    <div class="landmark-name">${landmark.name}</div>
+                    <div class="landmark-type">${landmark.type || 'Tourist Attraction'}</div>
+                    ${landmark.description ? `<div class="landmark-description">${landmark.description}</div>` : ''}
+                    ${landmark.website ? `
+                        <div class="landmark-website">
+                            <a href="${landmark.website}" target="_blank">Visit Website</a>
+                        </div>
+                    ` : ''}
+                </div>
+            `).join('');
+
+            // Store landmarks for next pair functionality
+            window.currentQuiz = {
+                landmarks: landmarks
+            };
+
+            // Start the distance quiz
+            startDistanceQuiz(landmarks);
+        }
+
+        // Handle form submission
+        document.getElementById('cityForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            showError('');
+            setLoading(true);
+            
+            fetch('/search_city', {
+                method: 'POST',
+                body: new FormData(this)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(data => {
+                        throw new Error(data.error || 'An error occurred');
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.error) {
+                    showError(data.error);
+                }
+                updateMap(data.landmarks);
+                updateLandmarks(data.landmarks);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showError(error.message || 'An error occurred while searching for the city. Please try again.');
+            })
+            .finally(() => {
+                setLoading(false);
+            });
+        });
+
+        // handle city selection
+        document.getElementById('city_name').addEventListener('change', function() {
+            const cityName = this.value;
+            if (!cityName) return;
+
+            // Clear current quiz state
+            window.currentQuiz = null;
+            document.getElementById('distanceQuiz').style.display = 'none';
+            document.getElementById('distanceResult').style.display = 'none';
+            document.getElementById('nextPair').style.display = 'none';
+
+            // Fetch landmarks for selected city
+            fetch(`/get_landmarks/${cityName}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        showError(data.error);
+                    } else {
+                        updateMap(data.landmarks);
+                        updateLandmarks(data.landmarks);
+                    }
+                })
+                .catch(error => {
+                    showError('Error fetching landmarks: ' + error.message);
+                });
+        });
+
+        // Add tab switching functionality
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                // Remove active class from all tabs and contents
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                
+                // Add active class to clicked tab and corresponding content
+                this.classList.add('active');
+                document.getElementById(`${this.dataset.tab}-tab`).classList.add('active');
+            });
+        });
+
+        // Distortion Analysis Functionality
+        document.getElementById('generateAnalysis').addEventListener('click', function() {
+            generateDistortionAnalysis();
+        });
+
+        document.getElementById('clearResults').addEventListener('click', function() {
+            if (confirm('Are you sure you want to clear all quiz results? This action cannot be undone.')) {
+                clearQuizResults();
+            }
+        });
+
+        document.getElementById('generateMockData').addEventListener('click', function() {
+            if (confirm('This will replace all existing quiz data with mock data for testing. Continue?')) {
+                generateMockData();
+            }
+        });
+
+        // store quiz result for analysis
+        function storeQuizResult(landmark1, landmark2, perceivedDistance, actualDistance, unit) {
+            const data = {
+                city: document.getElementById('city_name').value,
+                landmark1: landmark1.name,
+                landmark2: landmark2.name,
+                perceived_distance: perceivedDistance,
+                actual_distance: actualDistance,
+                unit: unit
+            };
+
+            fetch('/store_quiz_result', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    console.error('Error storing quiz result:', data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error storing quiz result:', error);
+            });
+        }
+
+        // generate distortion analysis
+        function generateDistortionAnalysis() {
+            const loadingDiv = document.getElementById('analysisLoading');
+            const contentDiv = document.getElementById('analysisContent');
+            const noDataDiv = document.getElementById('noDataMessage');
+
+            loadingDiv.style.display = 'flex';
+            contentDiv.style.display = 'none';
+            noDataDiv.style.display = 'none';
+
+            fetch('/get_distortion_analysis')
+                .then(response => response.json())
+                .then(data => {
+                    loadingDiv.style.display = 'none';
+                    
+                    if (data.error) {
+                        noDataDiv.style.display = 'block';
+                        noDataDiv.querySelector('p').textContent = data.error;
+                        return;
+                    }
+
+                    // Display statistics
+                    displaySummaryStats(data.stats);
+                    
+                    // Display graphs
+                    displayGraphs(data.graphs);
+                    
+                    // Display recent results
+                    displayRecentResults(data.recent_results);
+                    
+                    contentDiv.style.display = 'block';
+                })
+                .catch(error => {
+                    loadingDiv.style.display = 'none';
+                    noDataDiv.style.display = 'block';
+                    noDataDiv.querySelector('p').textContent = 'Error generating analysis: ' + error.message;
+                });
+        }
+
+        // display summary statistics
+        function displaySummaryStats(stats) {
+            const statsContainer = document.getElementById('summaryStats');
+            statsContainer.innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-value">${stats.total_quizzes}</div>
+                    <div class="stat-label">Total Quizzes</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${stats.average_distortion_ratio.toFixed(2)}</div>
+                    <div class="stat-label">Avg Distortion Ratio</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${stats.average_percentage_error.toFixed(1)}%</div>
+                    <div class="stat-label">Avg Percentage Error</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${stats.overestimation_rate.toFixed(1)}%</div>
+                    <div class="stat-label">Overestimation Rate</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${stats.underestimation_rate.toFixed(1)}%</div>
+                    <div class="stat-label">Underestimation Rate</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${stats.accurate_rate.toFixed(1)}%</div>
+                    <div class="stat-label">Accurate Estimates</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${stats.cities_tested}</div>
+                    <div class="stat-label">Cities Tested</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${stats.landmark_pairs_tested}</div>
+                    <div class="stat-label">Landmark Pairs</div>
+                </div>
+            `;
+        }
+
+        // display graphs
+        function displayGraphs(graphs) {
+            // Display scatter plot
+            document.getElementById('scatterPlot').src = 'data:image/png;base64,' + graphs.scatter_plot;
+            
+            // Display distortion histogram
+            document.getElementById('distortionHistogram').src = 'data:image/png;base64,' + graphs.distortion_histogram;
+            
+            // Display city heatmap if available
+            if (graphs.city_heatmap) {
+                document.getElementById('cityHeatmap').src = 'data:image/png;base64,' + graphs.city_heatmap;
+                document.getElementById('cityHeatmapContainer').style.display = 'block';
+            } else {
+                document.getElementById('cityHeatmapContainer').style.display = 'none';
+            }
+            
+            // Display error analysis
+            document.getElementById('errorAnalysis').src = 'data:image/png;base64,' + graphs.error_analysis;
+        }
+
+        // display recent results
+        function displayRecentResults(results) {
+            const tableContainer = document.getElementById('recentResultsTable');
+            
+            if (results.length === 0) {
+                tableContainer.innerHTML = '<p>No recent results available.</p>';
+                return;
+            }
+
+            const table = document.createElement('table');
+            table.className = 'results-table';
+            table.innerHTML = `
+                <thead>
+                    <tr>
+                        <th>City</th>
+                        <th>Landmark 1</th>
+                        <th>Landmark 2</th>
+                        <th>Perceived (km)</th>
+                        <th>Actual (km)</th>
+                        <th>Distortion Ratio</th>
+                        <th>Error %</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${results.map(result => {
+                        const distortionRatio = result.perceived_distance / result.actual_distance;
+                        const errorPercent = ((result.perceived_distance - result.actual_distance) / result.actual_distance) * 100;
+                        const ratioClass = distortionRatio > 1.1 ? 'overestimated' : 
+                                         distortionRatio < 0.9 ? 'underestimated' : 'accurate';
+                        
+                        return `
+                            <tr>
+                                <td>${result.city}</td>
+                                <td>${result.landmark1}</td>
+                                <td>${result.landmark2}</td>
+                                <td>${result.perceived_distance.toFixed(1)}</td>
+                                <td>${result.actual_distance.toFixed(1)}</td>
+                                <td class="distortion-ratio ${ratioClass}">${distortionRatio.toFixed(2)}</td>
+                                <td>${errorPercent.toFixed(1)}%</td>
+                            </tr>
+                        `;
+                    }).join('')}
+                </tbody>
+            `;
+            
+            tableContainer.innerHTML = '';
+            tableContainer.appendChild(table);
+        }
+
+        // clear quiz results
+        function clearQuizResults() {
+            fetch('/clear_quiz_results', {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('analysisContent').style.display = 'none';
+                    document.getElementById('noDataMessage').style.display = 'block';
+                    document.getElementById('noDataMessage').querySelector('p').textContent = 'No quiz data available. Complete some distance quizzes to see distortion analysis.';
+                }
+            })
+            .catch(error => {
+                console.error('Error clearing results:', error);
+            });
+        }
+
+        // generate mock data
+        function generateMockData() {
+            const loadingDiv = document.getElementById('analysisLoading');
+            const contentDiv = document.getElementById('analysisContent');
+            const noDataDiv = document.getElementById('noDataMessage');
+
+            loadingDiv.style.display = 'flex';
+            contentDiv.style.display = 'none';
+            noDataDiv.style.display = 'none';
+
+            fetch('/generate_mock_data', {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                loadingDiv.style.display = 'none';
+                
+                if (data.success) {
+                    // Show success message
+                    alert(`Success! ${data.message}\nCities: ${data.cities.join(', ')}\nTotal landmarks: ${data.total_landmarks}`);
+                    
+                    // Automatically generate analysis with the new data
+                    generateDistortionAnalysis();
+                } else {
+                    noDataDiv.style.display = 'block';
+                    noDataDiv.querySelector('p').textContent = 'Error generating mock data: ' + (data.error || 'Unknown error');
+                }
+            })
+            .catch(error => {
+                loadingDiv.style.display = 'none';
+                noDataDiv.style.display = 'block';
+                noDataDiv.querySelector('p').textContent = 'Error generating mock data: ' + error.message;
+            });
+        }
+    </script>
+</body>
+</html> 

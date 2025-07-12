@@ -1,0 +1,9 @@
+flask==3.0.2
+folium==0.19.7
+geopy==2.4.1
+numpy==1.26.4
+requests==2.31.0
+matplotlib==3.8.2
+seaborn==0.13.0
+pandas==2.1.4
+gunicorn==21.2.0 
