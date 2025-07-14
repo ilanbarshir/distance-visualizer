@@ -21,7 +21,6 @@ import pandas as pd
 
 app = Flask(__name__)
 
-# Global storage for quiz results
 quiz_results = []
 
 MAJOR_LANDMARKS = {
@@ -154,53 +153,46 @@ class SubjectiveDistanceVisualizer:
         self.actual_distances = {}
     
     def add_location_pair(self, loc1, loc2, perceived_dist):
-        """Add a pair of locations and user's perceived distance between them"""
-        coords1 = (loc1['lat'], loc1['lng'])
-        coords2 = (loc2['lat'], loc2['lng'])
+        c1 = (loc1['lat'], loc1['lng'])
+        c2 = (loc2['lat'], loc2['lng'])
         
-        # Calculate actual distance
-        actual_dist = geopy.distance.distance(coords1, coords2).kilometers
+        actual_distance = geopy.distance.distance(c1, c2).kilometers
         
-        # Store distances
-        pair_id = f"{loc1['name']}-{loc2['name']}"
-        self.perceived_distances[pair_id] = perceived_dist
-        self.actual_distances[pair_id] = actual_dist
+        id_for_pairing = f"{loc1['name']}-{loc2['name']}"
+        self.perceived_distances[id_for_pairing] = perceived_dist
+        self.actual_distances[id_for_pairing] = actual_distance
         
         # Add markers for locations
         folium.Marker(
-            coords1,
+            c1,
             popup=loc1['name']
         ).add_to(self.map)
         
         folium.Marker(
-            coords2,
+            c2,
             popup=loc2['name']
         ).add_to(self.map)
         
-        # Visualize on map
-        self._draw_connection(coords1, coords2, perceived_dist, actual_dist)
+        self._draw_connection(c1, c2, perceived_dist, actual_distance)
         
-    def _draw_connection(self, coords1, coords2, perceived_dist, actual_dist):
-        """Draw connection line between locations with color indicating perception accuracy"""
-        diff_ratio = perceived_dist / actual_dist
+    def _draw_connection(self, c1, c2, perceived_dist, actual_distance):
+        ratio = perceived_dist / actual_distance
         
-        # Color coding: red = overestimated, green = accurate, blue = underestimated
-        if diff_ratio > 1.2:
+        if ratio > 1.2:
             color = 'red'
-        elif diff_ratio < 0.8:
+        elif ratio < 0.8:
             color = 'blue'
         else:
             color = 'green'
             
         folium.PolyLine(
-            locations=[coords1, coords2],
+            locations=[c1, c2],
             weight=2,
             color=color,
-            popup=f'Perceived: {perceived_dist:.1f}km\nActual: {actual_dist:.1f}km'
+            popup=f'Perceived: {perceived_dist:.1f}km\nActual: {actual_distance:.1f}km'
         ).add_to(self.map)
 
 def get_city_coordinates(city_name):
-    """Get coordinates for a city using Nominatim."""
     try:
         geolocator = Nominatim(user_agent="city_map_viewer")
         location = geolocator.geocode(city_name)
@@ -212,15 +204,12 @@ def get_city_coordinates(city_name):
         return None, None, None
 
 def get_nearby_landmarks(lat, lng, city_name):
-    """Get landmarks for a city using predefined data."""
     try:
-        # Convert city name to lowercase for matching
         city_key = city_name.lower()
         
-        # Check if we have predefined landmarks for this city
         if city_key in MAJOR_LANDMARKS:
             landmarks = MAJOR_LANDMARKS[city_key]
-            # Add popularity score based on type
+
             for landmark in landmarks:
                 if landmark['type'] in ['Monument', 'Museum']:
                     landmark['popularity_score'] = 4
@@ -230,7 +219,7 @@ def get_nearby_landmarks(lat, lng, city_name):
                     landmark['popularity_score'] = 2
             return landmarks
         
-        # If no predefined landmarks, return empty list
+    
         return []
         
     except Exception as e:
@@ -239,12 +228,10 @@ def get_nearby_landmarks(lat, lng, city_name):
 
 @app.route('/')
 def index():
-    """Render the main page."""
     return render_template('distance_visualizer.html')
 
 @app.route('/search_city', methods=['POST'])
 def search_city():
-    """Handle city search and return map with marker."""
     try:
         city_name = request.form.get('city_name')
         if not city_name:
@@ -300,7 +287,6 @@ def search_city():
 
 @app.route('/test_map')
 def test_map():
-    """Test route to verify Folium map rendering"""
     m = folium.Map(location=[0, 0], zoom_start=2, tiles="OpenStreetMap")
     folium.Marker([0, 0], popup="Test Marker").add_to(m)
     return render_template('map.html', map_html=m._repr_html_())
@@ -310,7 +296,6 @@ def visualize():
     try:
         visualizer = SubjectiveDistanceVisualizer()
         
-        # Get form data
         loc1 = {
             'name': request.form['loc1_name'],
             'lat': float(request.form['loc1_lat']),
@@ -325,20 +310,16 @@ def visualize():
         
         perceived_dist = float(request.form['perceived_dist'])
         
-        # Add the location pair to the visualizer
         visualizer.add_location_pair(loc1, loc2, perceived_dist)
         
-        # Return the map using the template
         return render_template('map.html', map_html=visualizer.map._repr_html_())
     except Exception as e:
         return str(e), 400
 
 @app.route('/get_landmarks/<city_name>')
 def get_landmarks(city_name):
-    """Get landmarks for a specific city."""
     try:
-        # Get landmarks for the city
-        landmarks = get_nearby_landmarks(0, 0, city_name)  # Coordinates not needed for predefined landmarks
+        landmarks = get_nearby_landmarks(0, 0, city_name)  
         
         if not landmarks:
             return jsonify({

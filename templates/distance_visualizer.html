@@ -613,7 +613,6 @@
     <script>
         let map = null;
 
-        // show/hide loading state
         function setLoading(isLoading) {
             const button = document.getElementById('searchButton');
             const buttonLoader = document.getElementById('buttonLoader');
@@ -624,18 +623,15 @@
             loadingOverlay.style.display = isLoading ? 'flex' : 'none';
         }
 
-        // display error message
         function showError(message) {
             const errorDiv = document.getElementById('error');
             errorDiv.textContent = message;
             errorDiv.style.display = message ? 'block' : 'none';
         }
 
-        // update map with landmarks
         function updateMap(landmarks) {
             const mapContainer = document.getElementById('map');
             
-            // Initialize map if it doesn't exist
             if (!map) {
                 map = L.map('map').setView([0, 0], 11);
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -643,19 +639,16 @@
                 }).addTo(map);
             }
 
-            // Clear existing markers and lines
             map.eachLayer((layer) => {
                 if (layer instanceof L.Marker || layer instanceof L.Polyline) {
                     map.removeLayer(layer);
                 }
             });
 
-            // If we're in quiz mode and have selected landmarks, only show those
             if (window.currentQuiz && window.currentQuiz.landmark1 && window.currentQuiz.landmark2) {
                 const landmark1 = window.currentQuiz.landmark1;
                 const landmark2 = window.currentQuiz.landmark2;
 
-                // Add markers only for the selected landmarks
                 const marker1 = L.marker([landmark1.lat, landmark1.lon])
                     .addTo(map)
                     .bindPopup(`<b>${landmark1.name}</b><br>${landmark1.description || ''}`);
@@ -664,14 +657,11 @@
                     .addTo(map)
                     .bindPopup(`<b>${landmark2.name}</b><br>${landmark2.description || ''}`);
 
-                // Calculate the center point of the two landmarks
                 const centerLat = (landmark1.lat + landmark2.lat) / 2;
                 const centerLon = (landmark1.lon + landmark2.lon) / 2;
                 
-                // Set the map view to the center point with a fixed zoom level
                 map.setView([centerLat, centerLon], 11);
 
-                // Add a line between the markers
                 L.polyline([
                     [landmark1.lat, landmark1.lon],
                     [landmark2.lat, landmark2.lon]
@@ -682,7 +672,6 @@
                     dashArray: '5, 10'
                 }).addTo(map);
             } else {
-                // Show all landmarks if not in quiz mode
                 const markerLocations = [];
                 landmarks.forEach(landmark => {
                     const marker = L.marker([landmark.lat, landmark.lon])
@@ -692,17 +681,14 @@
                 });
 
                 if (markerLocations.length > 0) {
-                    // Calculate the center point of all landmarks
                     const centerLat = markerLocations.reduce((sum, loc) => sum + loc[0], 0) / markerLocations.length;
                     const centerLon = markerLocations.reduce((sum, loc) => sum + loc[1], 0) / markerLocations.length;
                     
-                    // Set the map view to the center point with a fixed zoom level
                     map.setView([centerLat, centerLon], 11);
                 }
             }
         }
 
-        // Calculate distance between two points
         function calculateDistance(lat1, lon1, lat2, lon2) {
             const R = 6371; // Earth's radius in km
             const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -715,21 +701,17 @@
             return R * c;
         }
 
-        // convert km to miles
         function kmToMiles(km) {
             return km * 0.621371;
         }
 
-        // cnvert miles to km
         function milesToKm(miles) {
             return miles / 0.621371;
         }
 
-        // start distance quiz
         function startDistanceQuiz(landmarks) {
             if (landmarks.length < 2) return;
 
-            // Randomly select two different landmarks
             const index1 = Math.floor(Math.random() * landmarks.length);
             let index2;
             do {
@@ -739,13 +721,11 @@
             const landmark1 = landmarks[index1];
             const landmark2 = landmarks[index2];
 
-            // Calculate actual distance
             const actualDistanceKm = calculateDistance(
                 landmark1.lat, landmark1.lon,
                 landmark2.lat, landmark2.lon
             );
 
-            // Update UI
             document.getElementById('landmark1').textContent = landmark1.name;
             document.getElementById('landmark2').textContent = landmark2.name;
             document.getElementById('distanceQuiz').style.display = 'block';
@@ -753,7 +733,6 @@
             document.getElementById('distanceInput').value = '';
             document.getElementById('nextPair').style.display = 'none';
 
-            // Store current quiz data
             window.currentQuiz = {
                 landmarks: landmarks,
                 actualDistanceKm: actualDistanceKm,
@@ -761,11 +740,9 @@
                 landmark2: landmark2
             };
 
-            // Update map with only the selected landmarks
             updateMap(landmarks);
         }
 
-        // Statistics tracking
         let statistics = {
             totalGuesses: 0,
             cityStats: {},
@@ -773,18 +750,14 @@
             overallError: 0
         };
 
-        // Function to update statistics
         function updateStatistics(landmark1, landmark2, city, userDistanceKm, actualDistanceKm) {
             const difference = Math.abs(userDistanceKm - actualDistanceKm);
             const percentageError = (difference / actualDistanceKm) * 100;
             
-            // Update total guesses
             statistics.totalGuesses++;
             
-            // Update overall error
             statistics.overallError = ((statistics.overallError * (statistics.totalGuesses - 1)) + percentageError) / statistics.totalGuesses;
             
-            // Update city statistics
             if (!statistics.cityStats[city]) {
                 statistics.cityStats[city] = {
                     guesses: 0,
@@ -795,7 +768,6 @@
             statistics.cityStats[city].guesses++;
             statistics.cityStats[city].totalError = ((statistics.cityStats[city].totalError * (statistics.cityStats[city].guesses - 1)) + percentageError) / statistics.cityStats[city].guesses;
             
-            // Update landmark pair statistics
             const pairKey = `${landmark1.name}-${landmark2.name}`;
             if (!statistics.landmarkPairStats[pairKey]) {
                 statistics.landmarkPairStats[pairKey] = {
@@ -809,7 +781,6 @@
             statistics.landmarkPairStats[pairKey].guesses++;
             statistics.landmarkPairStats[pairKey].totalError = ((statistics.landmarkPairStats[pairKey].totalError * (statistics.landmarkPairStats[pairKey].guesses - 1)) + percentageError) / statistics.landmarkPairStats[pairKey].guesses;
             
-            // Update best pair for city if this is better
             if (percentageError < statistics.cityStats[city].bestPair.error) {
                 statistics.cityStats[city].bestPair = {
                     landmarks: [landmark1.name, landmark2.name],
@@ -818,7 +789,6 @@
             }
         }
 
-        // Update the check distance handler to include statistics
         document.getElementById('checkDistance').addEventListener('click', function() {
             const userInput = parseFloat(document.getElementById('distanceInput').value);
             const unit = document.getElementById('distanceUnit').value;
@@ -838,7 +808,6 @@
             const difference = Math.abs(userDistanceKm - actualDistanceKm);
             const percentageError = (difference / actualDistanceKm) * 100;
 
-            // Store result for distortion analysis
             storeQuizResult(
                 window.currentQuiz.landmark1,
                 window.currentQuiz.landmark2,
@@ -847,7 +816,6 @@
                 unit
             );
 
-            // Update statistics
             updateStatistics(
                 window.currentQuiz.landmark1,
                 window.currentQuiz.landmark2,
@@ -873,14 +841,12 @@
             nextPairButton.style.display = 'block';
         });
 
-        // Handle next pair button
         document.getElementById('nextPair').addEventListener('click', function() {
             if (window.currentQuiz && window.currentQuiz.landmarks) {
                 startDistanceQuiz(window.currentQuiz.landmarks);
             }
         });
 
-        // update the landmarks list
         function updateLandmarks(landmarks) {
             const landmarksContainer = document.getElementById('landmarks');
             if (!landmarks || landmarks.length === 0) {
@@ -903,16 +869,13 @@
                 </div>
             `).join('');
 
-            // Store landmarks for next pair functionality
             window.currentQuiz = {
                 landmarks: landmarks
             };
 
-            // Start the distance quiz
             startDistanceQuiz(landmarks);
         }
 
-        // Handle form submission
         document.getElementById('cityForm').addEventListener('submit', function(e) {
             e.preventDefault();
             showError('');
@@ -946,18 +909,16 @@
             });
         });
 
-        // handle city selection
+        
         document.getElementById('city_name').addEventListener('change', function() {
             const cityName = this.value;
             if (!cityName) return;
 
-            // Clear current quiz state
             window.currentQuiz = null;
             document.getElementById('distanceQuiz').style.display = 'none';
             document.getElementById('distanceResult').style.display = 'none';
             document.getElementById('nextPair').style.display = 'none';
 
-            // Fetch landmarks for selected city
             fetch(`/get_landmarks/${cityName}`)
                 .then(response => response.json())
                 .then(data => {
@@ -973,20 +934,16 @@
                 });
         });
 
-        // Add tab switching functionality
         document.querySelectorAll('.tab').forEach(tab => {
             tab.addEventListener('click', function() {
-                // Remove active class from all tabs and contents
                 document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
                 document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
                 
-                // Add active class to clicked tab and corresponding content
                 this.classList.add('active');
                 document.getElementById(`${this.dataset.tab}-tab`).classList.add('active');
             });
         });
 
-        // Distortion Analysis Functionality
         document.getElementById('generateAnalysis').addEventListener('click', function() {
             generateDistortionAnalysis();
         });
@@ -1003,7 +960,6 @@
             }
         });
 
-        // store quiz result for analysis
         function storeQuizResult(landmark1, landmark2, perceivedDistance, actualDistance, unit) {
             const data = {
                 city: document.getElementById('city_name').value,
@@ -1032,7 +988,6 @@
             });
         }
 
-        // generate distortion analysis
         function generateDistortionAnalysis() {
             const loadingDiv = document.getElementById('analysisLoading');
             const contentDiv = document.getElementById('analysisContent');
@@ -1053,13 +1008,10 @@
                         return;
                     }
 
-                    // Display statistics
                     displaySummaryStats(data.stats);
                     
-                    // Display graphs
                     displayGraphs(data.graphs);
                     
-                    // Display recent results
                     displayRecentResults(data.recent_results);
                     
                     contentDiv.style.display = 'block';
@@ -1071,7 +1023,7 @@
                 });
         }
 
-        // display summary statistics
+      
         function displaySummaryStats(stats) {
             const statsContainer = document.getElementById('summaryStats');
             statsContainer.innerHTML = `
@@ -1110,15 +1062,15 @@
             `;
         }
 
-        // display graphs
+        
         function displayGraphs(graphs) {
-            // Display scatter plot
+            
             document.getElementById('scatterPlot').src = 'data:image/png;base64,' + graphs.scatter_plot;
             
-            // Display distortion histogram
+            
             document.getElementById('distortionHistogram').src = 'data:image/png;base64,' + graphs.distortion_histogram;
             
-            // Display city heatmap if available
+            
             if (graphs.city_heatmap) {
                 document.getElementById('cityHeatmap').src = 'data:image/png;base64,' + graphs.city_heatmap;
                 document.getElementById('cityHeatmapContainer').style.display = 'block';
@@ -1126,11 +1078,11 @@
                 document.getElementById('cityHeatmapContainer').style.display = 'none';
             }
             
-            // Display error analysis
+         
             document.getElementById('errorAnalysis').src = 'data:image/png;base64,' + graphs.error_analysis;
         }
 
-        // display recent results
+        
         function displayRecentResults(results) {
             const tableContainer = document.getElementById('recentResultsTable');
             
@@ -1179,7 +1131,7 @@
             tableContainer.appendChild(table);
         }
 
-        // clear quiz results
+        
         function clearQuizResults() {
             fetch('/clear_quiz_results', {
                 method: 'POST'
@@ -1215,10 +1167,10 @@
                 loadingDiv.style.display = 'none';
                 
                 if (data.success) {
-                    // Show success message
+                   
                     alert(`Success! ${data.message}\nCities: ${data.cities.join(', ')}\nTotal landmarks: ${data.total_landmarks}`);
                     
-                    // Automatically generate analysis with the new data
+                   
                     generateDistortionAnalysis();
                 } else {
                     noDataDiv.style.display = 'block';
