@@ -563,7 +563,7 @@ def generate_mock_data():
     from datetime import datetime, timedelta
     
     # Set seed for reproducible results
-    random.seed(42)
+    random.seed(2024)
     
     # Generate 50 mock quiz results
     for i in range(50):
